@@ -1,6 +1,6 @@
 <?php
 // -----------------------------
-// capGen.php - Version 1.1
+// capGen.php - Version 1.2
 // -----------------------------
 
 function fetchHtml($url) {
@@ -19,7 +19,7 @@ function extractInternalPages($html, $baseUrl) {
 
     $pages = [$baseUrl];
     foreach ($dom->getElementsByTagName('a') as $a) {
-        $href = $a->getAttribute('href');
+        $href = trim($a->getAttribute('href'));
         if (!$href) continue;
 
         if (str_starts_with($href, '/')) {
@@ -62,9 +62,12 @@ function filterImages($images, $startSize) {
 // -----------------------------
 // Handle request
 // -----------------------------
-$url = $_GET['url'] ?? '';
+$url       = $_GET['url'] ?? '';
 $startSize = (int)($_GET['startSize'] ?? 100);
+$target    = $_GET['target'] ?? '';
 
+$baseUrl = '';
+$pages   = [];
 $results = [];
 
 if ($url) {
@@ -73,18 +76,15 @@ if ($url) {
 
     if ($html) {
         $pages = extractInternalPages($html, $baseUrl);
+    }
 
-        foreach ($pages as $page) {
-            $pageHtml = fetchHtml($page);
-            if (!$pageHtml) continue;
+    // ถ้ามี target ให้ใช้ target ไม่งั้นใช้หน้าแรก
+    $analyzeUrl = $target ?: $baseUrl;
+    $pageHtml = fetchHtml($analyzeUrl);
 
-            $imgs = extractImages($pageHtml, $baseUrl);
-            $imgs = filterImages($imgs, $startSize);
-
-            foreach ($imgs as $img) {
-                $results[] = $img;
-            }
-        }
+    if ($pageHtml) {
+        $imgs = extractImages($pageHtml, $baseUrl);
+        $results = filterImages($imgs, $startSize);
     }
 }
 ?>
@@ -92,12 +92,19 @@ if ($url) {
 <html>
 <head>
 <meta charset="utf-8">
-<title>capGen.php v1.1</title>
+<title>capGen.php v1.2</title>
 <style>
 body {
     background:#111;
     color:#eee;
     font-family:Arial, sans-serif;
+}
+form {
+    margin-bottom:20px;
+}
+select {
+    width:100%;
+    max-width:600px;
 }
 .canvas {
     display:flex;
@@ -117,8 +124,6 @@ body {
     justify-content:center;
     color:red;
     font-weight:bold;
-    text-align:center;
-    pointer-events:none;
 }
 .filename {
     font-size:12px;
@@ -129,18 +134,36 @@ body {
 </head>
 <body>
 
-<h1>capGen.php – Version 1.1</h1>
+<h1>capGen.php – Version 1.2</h1>
 
 <form method="get">
-    URL:
-    <input type="text" name="url" size="50" value="<?= htmlspecialchars($url) ?>">
-    startSize:
-    <input type="number" name="startSize" value="<?= $startSize ?>">
-    <button>Run</button>
+    <div>
+        URL:<br>
+        <input type="text" name="url" size="60" value="<?= htmlspecialchars($url) ?>">
+    </div>
+
+<?php if ($pages): ?>
+    <div style="margin-top:10px;">
+        Internal Page:<br>
+        <select name="target">
+            <?php foreach ($pages as $p): ?>
+                <option value="<?= htmlspecialchars($p) ?>" <?= $p === $target ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($p) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+<?php endif; ?>
+
+    <div style="margin-top:10px;">
+        startSize:
+        <input type="number" name="startSize" value="<?= $startSize ?>">
+        <button>Analyze</button>
+    </div>
 </form>
 
 <div class="canvas">
-<?php foreach ($results as $img): 
+<?php foreach ($results as $img):
     if ($img['w'] <= 0 || $img['h'] <= 0) continue;
     $mw = $img['w'] / 3;
     $mh = $img['h'] / 3;
