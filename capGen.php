@@ -19,14 +19,38 @@ function extractInternalPages($html, $baseUrl) {
     $dom->loadHTML($html);
 
     $pages = [$baseUrl];
+    $baseHost = parse_url($baseUrl, PHP_URL_HOST);
+
     foreach ($dom->getElementsByTagName('a') as $a) {
         $href = trim($a->getAttribute('href'));
         if (!$href) continue;
 
+        // ignore anchors, mail, js
+        if (str_starts_with($href, '#') ||
+            str_starts_with($href, 'mailto:') ||
+            str_starts_with($href, 'javascript:')) {
+            continue;
+        }
+
+        // absolute internal link
+        if (str_starts_with($href, 'http')) {
+            $host = parse_url($href, PHP_URL_HOST);
+            if ($host === $baseHost) {
+                $pages[] = $href;
+            }
+            continue;
+        }
+
+        // relative link
         if (str_starts_with($href, '/')) {
             $pages[] = $baseUrl . $href;
+            continue;
         }
+
+        // plain relative (about-us, ./about-us)
+        $pages[] = rtrim($baseUrl, '/') . '/' . ltrim($href, './');
     }
+
     return array_unique($pages);
 }
 
