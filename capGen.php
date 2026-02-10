@@ -13,68 +13,93 @@ function getBaseUrlFromServer() {
     return $scheme . '://' . $_SERVER['HTTP_HOST'];
 }
 
+// -----------------------------
+// Crawl internal pages (homepage only)
+// -----------------------------
 function extractInternalPages($html, $baseUrl) {
+
     libxml_use_internal_errors(true);
     $dom = new DOMDocument();
     $dom->loadHTML($html);
 
-    $pages = [$baseUrl];
+    $pages = [];
     $baseHost = parse_url($baseUrl, PHP_URL_HOST);
+    $baseUrl  = rtrim($baseUrl, '/');
 
     foreach ($dom->getElementsByTagName('a') as $a) {
         $href = trim($a->getAttribute('href'));
-        if (!$href) continue;
+        if ($href === '') continue;
 
-        // ignore anchors, mail, js
-        if (str_starts_with($href, '#') ||
+        // ignore unwanted
+        if (
+            str_starts_with($href, '#') ||
             str_starts_with($href, 'mailto:') ||
-            str_starts_with($href, 'javascript:')) {
+            str_starts_with($href, 'javascript:') ||
+            str_starts_with($href, 'tel:')
+        ) {
             continue;
         }
 
-        // absolute internal link
+        // absolute internal
         if (str_starts_with($href, 'http')) {
             $host = parse_url($href, PHP_URL_HOST);
             if ($host === $baseHost) {
-                $pages[] = $href;
+                $pages[] = rtrim($href, '/');
             }
             continue;
         }
 
-        // relative link
+        // root relative
         if (str_starts_with($href, '/')) {
             $pages[] = $baseUrl . $href;
             continue;
         }
 
-        // plain relative (about-us, ./about-us)
-        $pages[] = rtrim($baseUrl, '/') . '/' . ltrim($href, './');
+        // plain relative
+        $pages[] = $baseUrl . '/' . ltrim($href, './');
     }
 
-    return array_unique($pages);
+    // ensure homepage exists once
+    array_unshift($pages, $baseUrl);
+
+    return array_values(array_unique($pages));
 }
 
+// -----------------------------
+// Extract images
+// -----------------------------
 function extractImages($html, $baseUrl) {
+
     libxml_use_internal_errors(true);
     $dom = new DOMDocument();
     $dom->loadHTML($html);
 
     $images = [];
+    $baseUrl = rtrim($baseUrl, '/');
+
     foreach ($dom->getElementsByTagName('img') as $img) {
-        $src = $img->getAttribute('src');
-        if (!$src) continue;
+
+        $src = trim($img->getAttribute('src'));
+        if ($src === '') continue;
 
         if (str_starts_with($src, '/')) {
             $src = $baseUrl . $src;
         }
 
+        $w = (int)$img->getAttribute('width');
+        $h = (int)$img->getAttribute('height');
+
+        // skip unknown size (icons, lazy, svg etc.)
+        if ($w <= 0 || $h <= 0) continue;
+
         $images[] = [
             'src'  => $src,
             'file' => basename(parse_url($src, PHP_URL_PATH)),
-            'w'    => (int)$img->getAttribute('width'),
-            'h'    => (int)$img->getAttribute('height')
+            'w'    => $w,
+            'h'    => $h
         ];
     }
+
     return $images;
 }
 
@@ -103,7 +128,7 @@ if ($homeHtml) {
 // Analyze selected page
 $pageHtml = fetchHtml($target);
 if ($pageHtml) {
-    $imgs = extractImages($pageHtml, $baseUrl);
+    $imgs    = extractImages($pageHtml, $baseUrl);
     $results = filterImages($imgs, $startSize);
 }
 ?>
@@ -176,7 +201,6 @@ select {
 
 <div class="canvas">
 <?php foreach ($results as $img):
-    if ($img['w'] <= 0 || $img['h'] <= 0) continue;
     $mw = $img['w'] / 3;
     $mh = $img['h'] / 3;
 ?>
