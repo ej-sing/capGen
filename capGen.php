@@ -1,15 +1,16 @@
 <?php
 // -----------------------------
-// capGen.php - Version 1.2
+// capGen.php - Version 1.3
+// Internal Use Mode
 // -----------------------------
 
 function fetchHtml($url) {
     return @file_get_contents($url);
 }
 
-function getBaseUrl($url) {
-    $p = parse_url($url);
-    return $p['scheme'] . '://' . $p['host'];
+function getBaseUrlFromServer() {
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    return $scheme . '://' . $_SERVER['HTTP_HOST'];
 }
 
 function extractInternalPages($html, $baseUrl) {
@@ -44,10 +45,10 @@ function extractImages($html, $baseUrl) {
         }
 
         $images[] = [
-            'src' => $src,
+            'src'  => $src,
             'file' => basename(parse_url($src, PHP_URL_PATH)),
-            'w' => (int)$img->getAttribute('width'),
-            'h' => (int)$img->getAttribute('height')
+            'w'    => (int)$img->getAttribute('width'),
+            'h'    => (int)$img->getAttribute('height')
         ];
     }
     return $images;
@@ -60,39 +61,33 @@ function filterImages($images, $startSize) {
 }
 
 // -----------------------------
-// Handle request
+// Context
 // -----------------------------
-$url       = $_GET['url'] ?? '';
+$baseUrl   = getBaseUrlFromServer();
 $startSize = (int)($_GET['startSize'] ?? 100);
-$target    = $_GET['target'] ?? '';
+$target    = $_GET['target'] ?? $baseUrl;
 
-$baseUrl = '';
 $pages   = [];
 $results = [];
 
-if ($url) {
-    $baseUrl = getBaseUrl($url);
-    $html = fetchHtml($url);
+// Load homepage immediately
+$homeHtml = fetchHtml($baseUrl);
+if ($homeHtml) {
+    $pages = extractInternalPages($homeHtml, $baseUrl);
+}
 
-    if ($html) {
-        $pages = extractInternalPages($html, $baseUrl);
-    }
-
-    // ถ้ามี target ให้ใช้ target ไม่งั้นใช้หน้าแรก
-    $analyzeUrl = $target ?: $baseUrl;
-    $pageHtml = fetchHtml($analyzeUrl);
-
-    if ($pageHtml) {
-        $imgs = extractImages($pageHtml, $baseUrl);
-        $results = filterImages($imgs, $startSize);
-    }
+// Analyze selected page
+$pageHtml = fetchHtml($target);
+if ($pageHtml) {
+    $imgs = extractImages($pageHtml, $baseUrl);
+    $results = filterImages($imgs, $startSize);
 }
 ?>
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>capGen.php v1.2</title>
+<title>capGen.php v1.3</title>
 <style>
 body {
     background:#111;
@@ -104,7 +99,7 @@ form {
 }
 select {
     width:100%;
-    max-width:600px;
+    max-width:700px;
 }
 .canvas {
     display:flex;
@@ -134,16 +129,10 @@ select {
 </head>
 <body>
 
-<h1>capGen.php – Version 1.2</h1>
+<h1>capGen.php – Version 1.3 (Internal)</h1>
 
 <form method="get">
     <div>
-        URL:<br>
-        <input type="text" name="url" size="60" value="<?= htmlspecialchars($url) ?>">
-    </div>
-
-<?php if ($pages): ?>
-    <div style="margin-top:10px;">
         Internal Page:<br>
         <select name="target">
             <?php foreach ($pages as $p): ?>
@@ -153,7 +142,6 @@ select {
             <?php endforeach; ?>
         </select>
     </div>
-<?php endif; ?>
 
     <div style="margin-top:10px;">
         startSize:
