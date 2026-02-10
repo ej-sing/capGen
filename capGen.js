@@ -1,11 +1,13 @@
-// capGen.js – Engine Core (Safe DOM)
+// capGen.js – Engine Core (DOM SAFE)
 
-async function capGenInit() {
+function capGenInit() {
   const status = document.getElementById('status');
   const canvas = document.getElementById('canvas');
 
+  console.log('capGen init', { status, canvas });
+
   if (!status || !canvas) {
-    console.error('capGen: DOM not ready', { status, canvas });
+    console.error('capGen: missing DOM element');
     return;
   }
 
@@ -14,11 +16,11 @@ async function capGenInit() {
   canvas.innerHTML = `
     <strong>capGen Engine</strong><br>
     Status: OK<br>
-    Time: ${new Date().toLocaleTimeString()}
+    Loaded at: ${new Date().toLocaleTimeString()}
   `;
 }
 
-// 🔒 DOM-safe init
+// DOM-safe bootstrap
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', capGenInit);
 } else {
