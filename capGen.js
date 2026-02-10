@@ -1,29 +1,61 @@
-(async () => {
+console.log('capGen.js loaded');
+
+(() => {
+
+  const scriptTag = document.currentScript;
+  const startSize = parseInt(scriptTag.dataset.startSize || 100, 10);
+  const SCALE = 3;
 
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-  // wait for lazy content
-  await sleep(2000);
+  async function run() {
 
-  const imgs = Array.from(document.images)
-    .map(img => ({
-      src: img.currentSrc || img.src,
-      w: img.naturalWidth,
-      h: img.naturalHeight
-    }))
-    .filter(img => img.w >= window.CAPGEN_CONFIG.startSize);
+    // wait for lazy-load / JS gallery
+    await sleep(2000);
 
-  const container = document.getElementById('result');
-  container.innerHTML = '';
+    const images = Array.from(document.images)
+      .map(img => ({
+        src: img.currentSrc || img.src,
+        w: img.naturalWidth,
+        h: img.naturalHeight,
+        file: img.src.split('/').pop()
+      }))
+      .filter(img => img.w >= startSize && img.h > 0);
 
-  imgs.forEach(img => {
-    const box = document.createElement('div');
-    box.style.border = '2px solid red';
-    box.style.width = img.w / 3 + 'px';
-    box.style.height = img.h / 3 + 'px';
-    box.style.marginBottom = '10px';
-    box.textContent = `${img.w} × ${img.h}`;
-    container.appendChild(box);
-  });
+    const container = document.getElementById('result');
+    container.innerHTML = '';
+
+    if (!images.length) {
+      container.innerHTML =
+        '<p style="color:#888">No images found</p>';
+      return;
+    }
+
+    images.forEach(img => {
+
+      const wrapper = document.createElement('div');
+
+      const mock = document.createElement('div');
+      mock.className = 'mock';
+      mock.style.width  = img.w / SCALE + 'px';
+      mock.style.height = img.h / SCALE + 'px';
+
+      const label = document.createElement('span');
+      label.textContent = `${img.w} × ${img.h}`;
+
+      mock.appendChild(label);
+
+      const name = document.createElement('div');
+      name.className = 'filename';
+      name.textContent = img.file;
+
+      wrapper.appendChild(mock);
+      wrapper.appendChild(name);
+
+      container.appendChild(wrapper);
+    });
+  }
+
+  run();
 
 })();
