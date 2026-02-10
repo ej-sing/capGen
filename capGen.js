@@ -1,4 +1,5 @@
 // capGen.js – Engine Core (DOM SAFE)
+console.log('capGen.js VERSION 1.4.1 LOADED');
 
 function capGenInit() {
   const status = document.getElementById('status');
